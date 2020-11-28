@@ -1,0 +1,4 @@
+progress==1.5
+matplotlib==3.2.2
+googletrans==3.0.0
+vk==2.0.2
