@@ -2,13 +2,17 @@
 
 import argparse
 from collections import Counter
-from googletrans import Translator
+from getpass import getuser
+from os import getenv
+
 import matplotlib.pyplot as plt
 from progress.bar import IncrementalBar
+from textblob import TextBlob, exceptions
 import vk
 
 
-TOKEN = open("/home/cognomen/Documents/access_token.txt").read()
+TOKEN = getenv('VK_TOKEN',
+               open(f"/home/{getuser()}/Documents/access_token.txt").read())
 API_V = 5.122
 
 
@@ -31,21 +35,58 @@ def parse():
     return parser.parse_args()
 
 
+def names_translate(word: TextBlob, arr: list):
+    """Append to resulting array translated word
+       if it was not in Russian. If it was empty, append Not defined
+    """
+    try:
+        if word:
+            if word.detect_language() != 'ru':
+                arr.append(word.translate(to='ru').string)
+            else:
+                arr.append(word.title().string)
+        else:
+            arr.append("Город не указан")
+    except exceptions.NotTranslated:
+        arr.append(word.string)
+
+
 # Converting list of cities' names to tuple of frequencies and labels
 def get_pie_data(arr: list):
     popular_cities = [c[0] for c in Counter(arr).most_common(5)]
 
     # Leave only 5 most popular results
-    excl_arr = list(map(lambda x: x if x in popular_cities else "другие города", arr))
+    excl_arr = list(map(lambda x: x if x in popular_cities
+                        else "Другие города", arr))
     excl_arr_counter = dict(Counter(excl_arr))
 
     return (excl_arr_counter.values(), excl_arr_counter.keys())
 
 
+def pie_chart(cities: list, homes: list, print_pie_chart: bool):
+    if not print_pie_chart:
+        return
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5))
+    fig.canvas.set_window_title("Friends' cities")
+
+    cities_data, homes_data = get_pie_data(cities), get_pie_data(homes)
+
+    for i, data in enumerate([cities_data, homes_data]):
+        expl = ([0.1, 0.05] + len(data[0])*[0])[:len(data[0])]
+        axes[i].pie(data[0], labels=data[1],
+                    startangle=90, explode=expl,
+                    autopct="%.1f%%", pctdistance=0.85)
+        axes[i].set(title="Текущий город" if not i else "Родной город")
+
+    plt.subplots_adjust(wspace=0.4)
+    plt.show()
+    return 0
+
+
 def get_friends_cities(target_id, print_pie_chart: bool):
     cities = []
     homes = []
-    tr = Translator()
 
     session = vk.Session(access_token=TOKEN)
     api = vk.API(session, lang='ru', v=API_V)
@@ -71,14 +112,12 @@ def get_friends_cities(target_id, print_pie_chart: bool):
             resp = api.users.get(user_id=friend_id,
                                  fields=['city', 'home_town'])[0]
 
-            city = dict(resp.pop('city', '')).pop(
-                        'title', 'город не указан')
-            home_town = resp.get('home_town', '')
+            city = TextBlob(dict(resp.pop('city', '')).pop('title', ''))
+            home_town = TextBlob(resp.get('home_town', ''))
 
-            cities.append(tr.translate(city, dest="ru").text.lower()
-			  if city else 'город не указан')
-            homes.append(tr.translate(home_town, dest="ru").text.lower() 
-			 if home_town else 'город не указан')
+            names_translate(city, cities)
+            names_translate(home_town, homes)
+
             bar.next()
 
     print('\nCurrent city:')
@@ -89,20 +128,7 @@ def get_friends_cities(target_id, print_pie_chart: bool):
     for i in Counter(homes).most_common(5):
         print(f'{i[0]:15} - {round(i[1]/len(homes)*100, 2)}%')
 
-    if print_pie_chart:
-        fig, axes = plt.subplots(1, 2, figsize=(11, 5))
-        fig.canvas.set_window_title("Friends' cities")
-
-        cities_data, homes_data = get_pie_data(cities), get_pie_data(homes)
-
-        for i, data in enumerate([cities_data, homes_data]):
-            expl = ([0.1, 0.05] + len(data[0])*[0])[:len(data[0])]
-            axes[i].pie(data[0], labels=data[1], startangle=90,
-                        explode=expl, autopct="%.1f%%", pctdistance=0.85)
-            axes[i].set(title="Текущий город" if not i else "Родной город")
-
-        plt.subplots_adjust(wspace=0.4)
-        plt.show()
+    pie_chart(cities, homes, print_pie_chart)
 
     return 0
 

@@ -1,5 +1,5 @@
 .ipynb_checkpoints/*
-.vscode/
+.vscode/*
 test_pie.py
 TelegramBot/*
 
