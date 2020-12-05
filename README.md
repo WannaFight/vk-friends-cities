@@ -31,4 +31,4 @@ Home city:
 Красноярск      - 4.0%
 
 ```
-![pie_chart_photo](https://drive.google.com/file/uc?export=view&id=13OweVl5FdMwP8HlYs8-EcGKv0zEUg37n)
+![pie_chart_photo](https://drive.google.com/uc?export=view&id=13OweVl5FdMwP8HlYs8-EcGKv0zEUg37n)
